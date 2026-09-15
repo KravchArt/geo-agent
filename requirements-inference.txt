@@ -1,0 +1,12 @@
+# Pinned inference dependency (vLLM). NOT part of the app's uv project/lock.
+#
+# Why separate: vllm pins a narrow, older fastapi/pydantic range that would drag
+# the whole backend onto stale (CVE-affected) versions. vllm also never runs
+# inside the api image or CI — it runs as its own `vllm/vllm-openai` container
+# (docker-compose `inference` profile), or in a dedicated venv on a GPU host.
+#
+# Standalone install (GPU host only):
+#   uv venv .venv-inference && uv pip install -r requirements-inference.txt --python .venv-inference
+#
+# See README "vLLM — reference" for `vllm serve` flags.
+vllm==0.24.0

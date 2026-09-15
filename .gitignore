@@ -1,0 +1,34 @@
+# --- Secrets / local env ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# --- Virtualenvs ---
+.venv/
+venv/
+
+# --- uv ---
+# NOTE: uv.lock IS committed (reproducible builds). Only ignore local caches.
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Модели и индексы: большие бинарники, ездят копированием, а не через git.
+artifacts/

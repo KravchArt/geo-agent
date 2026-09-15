@@ -1,0 +1,127 @@
+[project]
+name = "geoagent"
+version = "0.0.0"
+description = "Geo-Agent — LLM agent for travel / geo planning (Phase 0 infrastructure skeleton)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+
+# --- Pinned runtime dependencies (locked further in uv.lock) ---
+dependencies = [
+    "fastapi==0.139.0",
+    "uvicorn[standard]==0.51.0",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "sqlalchemy==2.0.51",
+    "asyncpg==0.30.0",
+    "greenlet==3.5.3",
+    "alembic==1.18.5",
+    "redis==8.0.1",
+    "openai==2.45.0",
+    "httpx==0.28.1",
+    "opening-hours-py==2.1.4",
+    # Scope OOD check only. One 11142x768 matrix-vector product per gated
+    # request; in pure Python that is 8.5M multiply-adds, nowhere near the
+    # latency budget. Nothing else in the backend imports it.
+    "numpy==2.3.4",
+]
+
+# NOTE on vLLM: it is intentionally NOT a project dependency/extra. vllm pins an
+# old, narrow fastapi/pydantic range that would drag the whole app onto stale
+# (and CVE-affected) versions. It also never runs in our image/CI — it runs as
+# its own `vllm/vllm-openai` container (see docker-compose `inference` profile).
+# The pinned version lives in `requirements-inference.txt` for a standalone env.
+
+# --- Dev / CI toolchain (installed by default via `uv sync`) ---
+[project.optional-dependencies]
+# Excel-based dataset generation and LLM-as-a-Judge utilities.
+# Install on demand with `uv run --extra eval ...`.
+eval = [
+    "openpyxl==3.1.5",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.15.21",
+    "mypy==2.2.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pip-audit==2.10.1",
+    "pre-commit==4.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["common", "backend", "tools", "eval", "ui"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+# ----------------------------------------------------------------------------
+# Ruff — lint + format
+# ----------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["backend/alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle / pyflakes
+    "I",             # isort
+    "UP",            # pyupgrade
+    "B",             # flake8-bugbear
+    "SIM",           # flake8-simplify
+    "C4",            # comprehensions
+    "ASYNC",         # async pitfalls
+    "RUF",
+]
+ignore = [
+    "B008",  # FastAPI uses function calls (Depends()) in argument defaults
+    # Tool descriptions and prompts are deliberately written in Russian, so
+    # "ambiguous" Cyrillic look-alikes are expected, not a mistake.
+    "RUF001",  # ambiguous unicode character in string
+    "RUF002",  # ... in docstring
+    "RUF003",  # ... in comment
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"backend/alembic/env.py" = ["E402"]
+
+# ----------------------------------------------------------------------------
+# mypy — strict where reasonable
+# ----------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+plugins = ["pydantic.mypy"]
+exclude = ["backend/alembic/versions/"]
+
+[[tool.mypy.overrides]]
+# Auto-generated migration scripts are not worth strict typing.
+module = ["backend.alembic.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Tests may use loose fixtures / dynamic assertions.
+module = ["backend.tests.*", "tools.tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# ----------------------------------------------------------------------------
+# pytest
+# ----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["backend/tests", "tools/tests", "eval/tests"]
+markers = [
+    "integration: requires live redis and/or postgres (provided by docker compose or CI services)",
+    "live_places: requires opt-in access to live external place-search APIs",
+    "live_routing: requires opt-in access to live external routing APIs",
+]
